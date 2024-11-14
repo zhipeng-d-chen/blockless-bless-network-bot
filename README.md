@@ -56,6 +56,8 @@ This script automates network or node operations for Blockless Bless Network Bot
 	```bash
 	node index.js
 	```
+**NOTE: The total time is refreshed every 10minute connection**
+
 ## License
 This project is licensed under the MIT License. See the [LICENSE](LICENSE) file for more details.
 
