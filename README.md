@@ -44,7 +44,7 @@ This script automates network or node operations for Blockless Bless Network Bot
  	```
 	To get your token, follow this step:
 	- Download the [extension](https://chromewebstore.google.com/detail/bless/pljbjcehnhcnofmkdbjolghdcjnmekia)
-	- after you download the extension, open [chrome://extensions/?id=pljbjcehnhcnofmkdbjolghdcjnmekia](chrome://extensions/?id=pljbjcehnhcnofmkdbjolghdcjnmekia)
+	- after you download the extension, open `[chrome://extensions/?id=pljbjcehnhcnofmkdbjolghdcjnmekia](chrome://extensions/?id=pljbjcehnhcnofmkdbjolghdcjnmekia)`
   - Enable `Developer mode` in top right, then press `service worker`. You will see new tab open.
     ![image](https://github.com/user-attachments/assets/63151405-cd49-4dff-9eec-a787a9aa3144)
 
