@@ -54,7 +54,7 @@ async function startSession(nodeId) {
     const fetch = await loadFetch();
     const authToken = await readAuthToken();
     const startSessionUrl = `${apiBaseUrl}/nodes/${nodeId}/start-session`;
-    console.log(`[${new Date().toISOString()}] Starting session for node ${nodeId}`);
+    console.log(`[${new Date().toISOString()}] Starting session for node ${nodeId}, it might take a while...`);
     const response = await fetch(startSessionUrl, {
         method: "POST",
         headers: {
@@ -142,7 +142,6 @@ async function runAll() {
         setInterval(async () => {
             console.log(`[${new Date().toISOString()}] Sending ping...`);
             const pingResponse = await pingNode(nodeId);
-            console.log(`[${new Date().toISOString()}] Ping response:`, pingResponse);
         }, 60000);
 
     } catch (error) {
