@@ -31,7 +31,7 @@ This script automates network or node operations for Blockless Bless Network Bot
 	eyJhbGcixxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxx
 	```
 	To get your token, follow this step:
-	- Login to your grass account in `[https://bless.network/dashboard](https://bless.network/dashboard?ref=84PLBS)`, make sure you is in this link before go to next step
+	- Login to your grass account in `https://bless.network/dashboard`, make sure you is in this link before go to next step
 	- Go to inspect element, press F12 or right-click then pick inspect element in your browser
 	- Go to application tab - look for Local Storage in storage list -> click `https://bless.network` and you will see your B7S_AUTH_TOKEN.
 	- or you can go Console tab and paste this 
