@@ -1,8 +1,18 @@
 const fs = require('fs').promises;
+const { HttpsProxyAgent } = require('https-proxy-agent');
+const readline = require('readline');
 
 async function loadFetch() {
     const fetch = await import('node-fetch').then(module => module.default);
     return fetch;
+}
+
+async function readProxy() {
+    const data = await fs.readFile('proxy.txt', 'utf-8');
+    const proxies = data.trim().split('\n').filter(proxy => proxy);
+    const randomProxy = proxies[Math.floor(Math.random() * proxies.length)];
+    console.log(`[${new Date().toISOString()}] Using proxy: ${randomProxy}`);
+    return randomProxy;
 }
 
 const apiBaseUrl = "https://gateway-run.bls.dev/api/v1";
@@ -19,11 +29,32 @@ async function readAuthToken() {
     return data.trim();
 }
 
-async function registerNode(nodeId, hardwareId) {
+async function promptUseProxy() {
+    const rl = readline.createInterface({
+        input: process.stdin,
+        output: process.stdout
+    });
+
+    return new Promise(resolve => {
+        rl.question('Do you want to use a proxy? (y/n): ', answer => {
+            rl.close();
+            resolve(answer.toLowerCase() === 'y');
+        });
+    });
+}
+
+async function registerNode(nodeId, hardwareId, useProxy) {
     const fetch = await loadFetch();
     const authToken = await readAuthToken();
+    let agent;
+
+    if (useProxy) {
+        const proxy = await readProxy();
+        agent = new HttpsProxyAgent(proxy);
+    }
+
     const registerUrl = `${apiBaseUrl}/nodes/${nodeId}`;
-    const ipAddress = await fetchIpAddress();
+    const ipAddress = await fetchIpAddress(fetch, agent);
     console.log(`[${new Date().toISOString()}] Registering node with IP: ${ipAddress}, Hardware ID: ${hardwareId}`);
     const response = await fetch(registerUrl, {
         method: "POST",
@@ -34,7 +65,8 @@ async function registerNode(nodeId, hardwareId) {
         body: JSON.stringify({
             ipAddress,
             hardwareId
-        })
+        }),
+        agent
     });
 
     let data;
@@ -50,49 +82,73 @@ async function registerNode(nodeId, hardwareId) {
     return data;
 }
 
-async function startSession(nodeId) {
+async function startSession(nodeId, useProxy) {
     const fetch = await loadFetch();
     const authToken = await readAuthToken();
+    let agent;
+
+    if (useProxy) {
+        const proxy = await readProxy();
+        agent = new HttpsProxyAgent(proxy);
+    }
+
     const startSessionUrl = `${apiBaseUrl}/nodes/${nodeId}/start-session`;
     console.log(`[${new Date().toISOString()}] Starting session for node ${nodeId}, it might take a while...`);
     const response = await fetch(startSessionUrl, {
         method: "POST",
         headers: {
             Authorization: `Bearer ${authToken}`
-        }
+        },
+        agent
     });
     const data = await response.json();
     console.log(`[${new Date().toISOString()}] Start session response:`, data);
     return data;
 }
 
-async function stopSession(nodeId) {
+async function stopSession(nodeId, useProxy) {
     const fetch = await loadFetch();
     const authToken = await readAuthToken();
+    let agent;
+
+    if (useProxy) {
+        const proxy = await readProxy();
+        agent = new HttpsProxyAgent(proxy);
+    }
+
     const stopSessionUrl = `${apiBaseUrl}/nodes/${nodeId}/stop-session`;
     console.log(`[${new Date().toISOString()}] Stopping session for node ${nodeId}`);
     const response = await fetch(stopSessionUrl, {
         method: "POST",
         headers: {
             Authorization: `Bearer ${authToken}`
-        }
+        },
+        agent
     });
     const data = await response.json();
     console.log(`[${new Date().toISOString()}] Stop session response:`, data);
     return data;
 }
 
-async function pingNode(nodeId) {
+async function pingNode(nodeId, useProxy) {
     const fetch = await loadFetch();
     const chalk = await import('chalk');
     const authToken = await readAuthToken();
+    let agent;
+
+    if (useProxy) {
+        const proxy = await readProxy();
+        agent = new HttpsProxyAgent(proxy);
+    }
+
     const pingUrl = `${apiBaseUrl}/nodes/${nodeId}/ping`;
     console.log(`[${new Date().toISOString()}] Pinging node ${nodeId}`);
     const response = await fetch(pingUrl, {
         method: "POST",
         headers: {
             Authorization: `Bearer ${authToken}`
-        }
+        },
+        agent
     });
     const data = await response.json();
     
@@ -103,9 +159,8 @@ async function pingNode(nodeId) {
     return data;
 }
 
-async function fetchIpAddress() {
-    const fetch = await loadFetch();
-    const response = await fetch(ipServiceUrl);
+async function fetchIpAddress(fetch, agent) {
+    const response = await fetch(ipServiceUrl, { agent });
     const data = await response.json();
     console.log(`[${new Date().toISOString()}] IP fetch response:`, data);
     return data.ip;
@@ -125,23 +180,24 @@ async function runAll() {
     try {
         await displayHeader();
 
+        const useProxy = await promptUseProxy();
+
         const { nodeId, hardwareId } = await readNodeAndHardwareId();
 
         console.log(`[${new Date().toISOString()}] Read nodeId: ${nodeId}, hardwareId: ${hardwareId}`);
 
-        const registrationResponse = await registerNode(nodeId, hardwareId);
+        const registrationResponse = await registerNode(nodeId, hardwareId, useProxy);
         console.log(`[${new Date().toISOString()}] Node registration completed. Response:`, registrationResponse);
 
-        const startSessionResponse = await startSession(nodeId);
+        const startSessionResponse = await startSession(nodeId, useProxy);
         console.log(`[${new Date().toISOString()}] Session started. Response:`, startSessionResponse);
 
         console.log(`[${new Date().toISOString()}] Sending initial ping...`);
-        const initialPingResponse = await pingNode(nodeId);
-        // console.log(`[${new Date().toISOString()}] Initial ping response:`, initialPingResponse);
+        const initialPingResponse = await pingNode(nodeId, useProxy);
 
         setInterval(async () => {
             console.log(`[${new Date().toISOString()}] Sending ping...`);
-            const pingResponse = await pingNode(nodeId);
+            const pingResponse = await pingNode(nodeId, useProxy);
         }, 60000);
 
     } catch (error) {
