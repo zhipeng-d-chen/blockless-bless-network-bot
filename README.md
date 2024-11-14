@@ -57,6 +57,7 @@ This script automates network or node operations for Blockless Bless Network Bot
 	node index.js
 	```
 **NOTE: The total time is refreshed every 10minute connection**
+**      One account only can have 5 nodeid max and can't be deleted, I recomended to save your Nodeid(pubkey) and hardwareid of your account**
 
 ## License
 This project is licensed under the MIT License. See the [LICENSE](LICENSE) file for more details.
