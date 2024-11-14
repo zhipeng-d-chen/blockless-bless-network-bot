@@ -1,1 +1,1 @@
-nodeid:hardwareid
+nodeid(pubkey):hardwareid

@@ -36,7 +36,16 @@ async function registerNode(nodeId, hardwareId) {
             hardwareId
         })
     });
-    const data = await response.json();
+
+    let data;
+    try {
+        data = await response.json();
+    } catch (error) {
+        const text = await response.text();
+        console.error(`[${new Date().toISOString()}] Failed to parse JSON. Response text:`, text);
+        throw error;
+    }
+
     console.log(`[${new Date().toISOString()}] Registration response:`, data);
     return data;
 }
@@ -75,6 +84,7 @@ async function stopSession(nodeId) {
 
 async function pingNode(nodeId) {
     const fetch = await loadFetch();
+    const chalk = await import('chalk');
     const authToken = await readAuthToken();
     const pingUrl = `${apiBaseUrl}/nodes/${nodeId}/ping`;
     console.log(`[${new Date().toISOString()}] Pinging node ${nodeId}`);
@@ -85,7 +95,11 @@ async function pingNode(nodeId) {
         }
     });
     const data = await response.json();
-    console.log(`[${new Date().toISOString()}] Ping response:`, data);
+    
+    const lastPing = data.pings[data.pings.length - 1].timestamp;
+    const logMessage = `[${new Date().toISOString()}] Ping response, ID: ${chalk.default.green(data._id)}, NodeID: ${chalk.default.green(data.nodeId)}, Last Ping: ${chalk.default.yellow(lastPing)}`;
+    console.log(logMessage);
+    
     return data;
 }
 
@@ -97,8 +111,20 @@ async function fetchIpAddress() {
     return data.ip;
 }
 
+async function displayHeader() {
+    const chalk = await import('chalk');
+    console.log("");
+    console.log(chalk.default.yellow(" ============================================"));
+    console.log(chalk.default.yellow("|        Blockless Bless Network Bot         |"));
+    console.log(chalk.default.yellow("|         github.com/recitativonika          |"));
+    console.log(chalk.default.yellow(" ============================================"));
+    console.log("");
+}
+
 async function runAll() {
     try {
+        await displayHeader();
+
         const { nodeId, hardwareId } = await readNodeAndHardwareId();
 
         console.log(`[${new Date().toISOString()}] Read nodeId: ${nodeId}, hardwareId: ${hardwareId}`);
@@ -111,13 +137,14 @@ async function runAll() {
 
         console.log(`[${new Date().toISOString()}] Sending initial ping...`);
         const initialPingResponse = await pingNode(nodeId);
-        console.log(`[${new Date().toISOString()}] Initial ping response:`, initialPingResponse);
+        // console.log(`[${new Date().toISOString()}] Initial ping response:`, initialPingResponse);
 
         setInterval(async () => {
             console.log(`[${new Date().toISOString()}] Sending ping...`);
             const pingResponse = await pingNode(nodeId);
             console.log(`[${new Date().toISOString()}] Ping response:`, pingResponse);
         }, 60000);
+
     } catch (error) {
         console.error(`[${new Date().toISOString()}] An error occurred:`, error);
     }
