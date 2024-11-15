@@ -2,26 +2,27 @@ const fs = require('fs').promises;
 const { HttpsProxyAgent } = require('https-proxy-agent');
 const readline = require('readline');
 
+const apiBaseUrl = "https://gateway-run.bls.dev/api/v1";
+const ipServiceUrl = "https://tight-block-2413.txlabs.workers.dev";
+
 async function loadFetch() {
     const fetch = await import('node-fetch').then(module => module.default);
     return fetch;
 }
 
-async function readProxy() {
+async function readProxies() {
     const data = await fs.readFile('proxy.txt', 'utf-8');
     const proxies = data.trim().split('\n').filter(proxy => proxy);
-    const randomProxy = proxies[Math.floor(Math.random() * proxies.length)];
-    console.log(`[${new Date().toISOString()}] Using proxy: ${randomProxy}`);
-    return randomProxy;
+    return proxies;
 }
 
-const apiBaseUrl = "https://gateway-run.bls.dev/api/v1";
-const ipServiceUrl = "https://tight-block-2413.txlabs.workers.dev";
-
-async function readNodeAndHardwareId() {
+async function readNodeAndHardwareIds() {
     const data = await fs.readFile('id.txt', 'utf-8');
-    const [nodeId, hardwareId] = data.trim().split(':');
-    return { nodeId, hardwareId };
+    const ids = data.trim().split('\n').filter(id => id).map(id => {
+        const [nodeId, hardwareId] = id.split(':');
+        return { nodeId, hardwareId };
+    });
+    return ids;
 }
 
 async function readAuthToken() {
@@ -43,13 +44,12 @@ async function promptUseProxy() {
     });
 }
 
-async function registerNode(nodeId, hardwareId, useProxy) {
+async function registerNode(nodeId, hardwareId, proxy) {
     const fetch = await loadFetch();
     const authToken = await readAuthToken();
     let agent;
 
-    if (useProxy) {
-        const proxy = await readProxy();
+    if (proxy) {
         agent = new HttpsProxyAgent(proxy);
     }
 
@@ -82,13 +82,12 @@ async function registerNode(nodeId, hardwareId, useProxy) {
     return data;
 }
 
-async function startSession(nodeId, useProxy) {
+async function startSession(nodeId, proxy) {
     const fetch = await loadFetch();
     const authToken = await readAuthToken();
     let agent;
 
-    if (useProxy) {
-        const proxy = await readProxy();
+    if (proxy) {
         agent = new HttpsProxyAgent(proxy);
     }
 
@@ -106,13 +105,12 @@ async function startSession(nodeId, useProxy) {
     return data;
 }
 
-async function stopSession(nodeId, useProxy) {
+async function stopSession(nodeId, proxy) {
     const fetch = await loadFetch();
     const authToken = await readAuthToken();
     let agent;
 
-    if (useProxy) {
-        const proxy = await readProxy();
+    if (proxy) {
         agent = new HttpsProxyAgent(proxy);
     }
 
@@ -130,14 +128,13 @@ async function stopSession(nodeId, useProxy) {
     return data;
 }
 
-async function pingNode(nodeId, useProxy) {
+async function pingNode(nodeId, proxy) {
     const fetch = await loadFetch();
     const chalk = await import('chalk');
     const authToken = await readAuthToken();
     let agent;
 
-    if (useProxy) {
-        const proxy = await readProxy();
+    if (proxy) {
         agent = new HttpsProxyAgent(proxy);
     }
 
@@ -182,26 +179,37 @@ async function runAll() {
 
         const useProxy = await promptUseProxy();
 
-        const { nodeId, hardwareId } = await readNodeAndHardwareId();
+        const ids = await readNodeAndHardwareIds();
+        const proxies = await readProxies();
 
-        console.log(`[${new Date().toISOString()}] Read nodeId: ${nodeId}, hardwareId: ${hardwareId}`);
+        if (useProxy && proxies.length !== ids.length) {
+            throw new Error((await import('chalk')).default.yellow(`Number of proxies (${proxies.length}) does not match number of nodeId:hardwareId pairs (${ids.length})`));
+        }
 
-        const registrationResponse = await registerNode(nodeId, hardwareId, useProxy);
-        console.log(`[${new Date().toISOString()}] Node registration completed. Response:`, registrationResponse);
+        for (let i = 0; i < ids.length; i++) {
+            const { nodeId, hardwareId } = ids[i];
+            const proxy = useProxy ? proxies[i] : null;
 
-        const startSessionResponse = await startSession(nodeId, useProxy);
-        console.log(`[${new Date().toISOString()}] Session started. Response:`, startSessionResponse);
+            console.log(`[${new Date().toISOString()}] Processing nodeId: ${nodeId}, hardwareId: ${hardwareId}`);
 
-        console.log(`[${new Date().toISOString()}] Sending initial ping...`);
-        const initialPingResponse = await pingNode(nodeId, useProxy);
+            const registrationResponse = await registerNode(nodeId, hardwareId, proxy);
+            console.log(`[${new Date().toISOString()}] Node registration completed for nodeId: ${nodeId}. Response:`, registrationResponse);
 
-        setInterval(async () => {
-            console.log(`[${new Date().toISOString()}] Sending ping...`);
-            const pingResponse = await pingNode(nodeId, useProxy);
-        }, 60000);
+            const startSessionResponse = await startSession(nodeId, proxy);
+            console.log(`[${new Date().toISOString()}] Session started for nodeId: ${nodeId}. Response:`, startSessionResponse);
+
+            console.log(`[${new Date().toISOString()}] Sending initial ping for nodeId: ${nodeId}`);
+            const initialPingResponse = await pingNode(nodeId, proxy);
+
+            setInterval(async () => {
+                console.log(`[${new Date().toISOString()}] Sending ping for nodeId: ${nodeId}`);
+                const pingResponse = await pingNode(nodeId, proxy);
+            }, 60000);
+        }
 
     } catch (error) {
-        console.error(`[${new Date().toISOString()}] An error occurred:`, error);
+        const chalk = await import('chalk');
+        console.error(chalk.default.yellow(`[${new Date().toISOString()}] An error occurred: ${error.message}`));
     }
 }
 
