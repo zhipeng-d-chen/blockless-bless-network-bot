@@ -4,6 +4,7 @@ const readline = require('readline');
 
 const apiBaseUrl = "https://gateway-run.bls.dev/api/v1";
 const ipServiceUrl = "https://tight-block-2413.txlabs.workers.dev";
+let useProxy;
 
 async function loadFetch() {
     const fetch = await import('node-fetch').then(module => module.default);
@@ -149,11 +150,44 @@ async function displayHeader() {
     console.log("");
 }
 
-async function runAll() {
-    try {
-        await displayHeader();
+async function processNode(nodeId, hardwareId, proxy, ipAddress) {
+    while (true) {
+        try {
+            console.log(`[${new Date().toISOString()}] Processing nodeId: ${nodeId}, hardwareId: ${hardwareId}, IP: ${ipAddress}`);
+            
+            const registrationResponse = await registerNode(nodeId, hardwareId, ipAddress, proxy);
+            console.log(`[${new Date().toISOString()}] Node registration completed for nodeId: ${nodeId}. Response:`, registrationResponse);
+            
+            const startSessionResponse = await startSession(nodeId, proxy);
+            console.log(`[${new Date().toISOString()}] Session started for nodeId: ${nodeId}. Response:`, startSessionResponse);
+            
+            console.log(`[${new Date().toISOString()}] Sending initial ping for nodeId: ${nodeId}`);
+            await pingNode(nodeId, proxy, ipAddress);
+            
+            setInterval(async () => {
+                try {
+                    console.log(`[${new Date().toISOString()}] Sending ping for nodeId: ${nodeId}`);
+                    await pingNode(nodeId, proxy, ipAddress);
+                } catch (error) {
+                    console.error(`[${new Date().toISOString()}] Error during ping: ${error.message}`);
+                    throw error;
+                }
+            }, 60000);
+            
+            break;
 
-        const useProxy = await promptUseProxy();
+        } catch (error) {
+            console.error(`[${new Date().toISOString()}] Error occurred for nodeId: ${nodeId}, restarting process: ${error.message}`);
+        }
+    }
+}
+
+async function runAll(initialRun = true) {
+    try {
+        if (initialRun) {
+            await displayHeader();
+            useProxy = await promptUseProxy();
+        }
 
         const ids = await readNodeAndHardwareIds();
         const proxies = await readProxies();
@@ -167,23 +201,8 @@ async function runAll() {
             const proxy = useProxy ? proxies[i] : null;
             const ipAddress = useProxy ? await fetchIpAddress(await loadFetch(), proxy ? new HttpsProxyAgent(proxy) : null) : null;
 
-            console.log(`[${new Date().toISOString()}] Processing nodeId: ${nodeId}, hardwareId: ${hardwareId}, IP: ${ipAddress}`);
-
-            const registrationResponse = await registerNode(nodeId, hardwareId, ipAddress, proxy);
-            console.log(`[${new Date().toISOString()}] Node registration completed for nodeId: ${nodeId}. Response:`, registrationResponse);
-
-            const startSessionResponse = await startSession(nodeId, proxy);
-            console.log(`[${new Date().toISOString()}] Session started for nodeId: ${nodeId}. Response:`, startSessionResponse);
-
-            console.log(`[${new Date().toISOString()}] Sending initial ping for nodeId: ${nodeId}`);
-            const initialPingResponse = await pingNode(nodeId, proxy, ipAddress);
-
-            setInterval(async () => {
-                console.log(`[${new Date().toISOString()}] Sending ping for nodeId: ${nodeId}`);
-                const pingResponse = await pingNode(nodeId, proxy, ipAddress);
-            }, 10000);
+            processNode(nodeId, hardwareId, proxy, ipAddress);
         }
-
     } catch (error) {
         const chalk = await import('chalk');
         console.error(chalk.default.yellow(`[${new Date().toISOString()}] An error occurred: ${error.message}`));
