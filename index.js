@@ -181,7 +181,7 @@ async function runAll() {
             setInterval(async () => {
                 console.log(`[${new Date().toISOString()}] Sending ping for nodeId: ${nodeId}`);
                 const pingResponse = await pingNode(nodeId, proxy, ipAddress);
-            }, 60000);
+            }, 10000);
         }
 
     } catch (error) {
