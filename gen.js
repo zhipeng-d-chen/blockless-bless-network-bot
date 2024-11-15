@@ -26,7 +26,7 @@ async function generateDeviceIdentifier() {
     return hash.digest('hex');
 }
 
-function generatePubKey(length = 42) {
+function generatePubKey(length = 52) {
     const prefix = "12D3KooW";
     const remainingLength = length - prefix.length;
     const characters = 'ABCDEFGHIJKLMNOPQRSTUVWXYZ0123456789';
@@ -59,7 +59,7 @@ async function main() {
             const publicKey = generatePubKey();
 
             const logEntry = `Device Identifier ${i + 1}: ${chalk.green(deviceIdentifier)}\nPublic Key ${i + 1}: ${chalk.blue(publicKey)}\n`;
-            const formattedEntry = `${deviceIdentifier}:${publicKey}\n`;
+            const formattedEntry = `${publicKey}:${deviceIdentifier}\n`;
             output += formattedEntry;
             console.log(logEntry);
         }
