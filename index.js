@@ -163,7 +163,7 @@ async function processNode(nodeId, hardwareId, proxy, ipAddress) {
             
             console.log(`[${new Date().toISOString()}] Sending initial ping for nodeId: ${nodeId}`);
             await pingNode(nodeId, proxy, ipAddress);
-            
+
             setInterval(async () => {
                 try {
                     console.log(`[${new Date().toISOString()}] Sending ping for nodeId: ${nodeId}`);
@@ -174,7 +174,7 @@ async function processNode(nodeId, hardwareId, proxy, ipAddress) {
                 }
             }, 60000);
             
-            break;
+            break; // Exit the loop if no error occurs
 
         } catch (error) {
             console.error(`[${new Date().toISOString()}] Error occurred for nodeId: ${nodeId}, restarting process: ${error.message}`);
@@ -208,5 +208,10 @@ async function runAll(initialRun = true) {
         console.error(chalk.default.yellow(`[${new Date().toISOString()}] An error occurred: ${error.message}`));
     }
 }
+
+process.on('uncaughtException', (error) => {
+    console.error(`[${new Date().toISOString()}] Uncaught exception: ${error.message}`);
+    runAll(false); // Restart the script on uncaught exception
+});
 
 runAll();
