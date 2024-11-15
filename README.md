@@ -5,6 +5,8 @@ This script automates network or node operations for Blockless Bless Network Bot
 
 ## Features
 - **Automated node interaction**
+- **Multi NodeID**
+- **Proxy support**
 
 ## Prerequisites
 - [Node.js](https://nodejs.org/) (version 12 or higher)
@@ -40,7 +42,8 @@ This script automates network or node operations for Blockless Bless Network Bot
 	```
 3. Set and Modify `id.txt`. Below how to setup this file, put your `nodeid(pubkey)` and `hardwareid` in the text file with this format `nodeid(pubkey):hardwareid`, example below:
 	```
- 	12D3Koxxxxxxxxxxxxxxx:e938610xxxxxxxxxxxx
+ 	12D3Koxxxxxxxxxxxx3ws:e938610xxxxxxxxxxxx
+	12D3Koxxxxxxxxxxxx58o:221610xxxxxxxxxxxxx
  	```
 	To get your token, follow this step:
 	- Download the [extension](https://chromewebstore.google.com/detail/bless/pljbjcehnhcnofmkdbjolghdcjnmekia)
@@ -51,7 +54,7 @@ This script automates network or node operations for Blockless Bless Network Bot
 	- Go to `network` tab, then open the `Bless extension` and login to your account.
   	- After you login to your account, search name with your pubkey (example : `12D3xxxx`), open and copy the `pubkey` and `hardwareid`
 ![image](https://github.com/user-attachments/assets/70bcb0c6-9c47-4c81-9bf4-a55ab912fba6)
-4. If you want to use `proxy`, edit `proxy.txt` and add your proxy in there.
+4. If you want to use `proxy`, edit `proxy.txt` and add your proxy in there. Make sure total proxy is same with your total `nodeid(pubkey):hardwareid` that you put in `id.txt` 
 5. Run the script:
 	```bash
 	node index.js
