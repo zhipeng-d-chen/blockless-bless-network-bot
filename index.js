@@ -174,7 +174,7 @@ async function processNode(nodeId, hardwareId, proxy, ipAddress) {
                 }
             }, 60000);
             
-            break; // Exit the loop if no error occurs
+            break;
 
         } catch (error) {
             console.error(`[${new Date().toISOString()}] Error occurred for nodeId: ${nodeId}, restarting process: ${error.message}`);
@@ -211,7 +211,7 @@ async function runAll(initialRun = true) {
 
 process.on('uncaughtException', (error) => {
     console.error(`[${new Date().toISOString()}] Uncaught exception: ${error.message}`);
-    runAll(false); // Restart the script on uncaught exception
+    runAll(false);
 });
 
 runAll();
