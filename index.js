@@ -1,6 +1,7 @@
 const fs = require('fs').promises;
 const { HttpsProxyAgent } = require('https-proxy-agent');
 const readline = require('readline');
+const config = require('./config');
 
 const apiBaseUrl = "https://gateway-run.bls.dev/api/v1";
 const ipServiceUrl = "https://tight-block-2413.txlabs.workers.dev";
@@ -9,26 +10,6 @@ let useProxy;
 async function loadFetch() {
     const fetch = await import('node-fetch').then(module => module.default);
     return fetch;
-}
-
-async function readProxies() {
-    const data = await fs.readFile('proxy.txt', 'utf-8');
-    const proxies = data.trim().split('\n').filter(proxy => proxy);
-    return proxies;
-}
-
-async function readNodeAndHardwareIds() {
-    const data = await fs.readFile('id.txt', 'utf-8');
-    const ids = data.trim().split('\n').filter(id => id).map(id => {
-        const [nodeId, hardwareId] = id.split(':');
-        return { nodeId, hardwareId };
-    });
-    return ids;
-}
-
-async function readAuthToken() {
-    const data = await fs.readFile('user.txt', 'utf-8');
-    return data.trim();
 }
 
 async function promptUseProxy() {
@@ -52,9 +33,8 @@ async function fetchIpAddress(fetch, agent) {
     return data.ip;
 }
 
-async function registerNode(nodeId, hardwareId, ipAddress, proxy) {
+async function registerNode(nodeId, hardwareId, ipAddress, proxy, authToken) {
     const fetch = await loadFetch();
-    const authToken = await readAuthToken();
     let agent;
 
     if (proxy) {
@@ -89,9 +69,8 @@ async function registerNode(nodeId, hardwareId, ipAddress, proxy) {
     return data;
 }
 
-async function startSession(nodeId, proxy) {
+async function startSession(nodeId, proxy, authToken) {
     const fetch = await loadFetch();
-    const authToken = await readAuthToken();
     let agent;
 
     if (proxy) {
@@ -112,10 +91,9 @@ async function startSession(nodeId, proxy) {
     return data;
 }
 
-async function pingNode(nodeId, proxy, ipAddress) {
+async function pingNode(nodeId, proxy, ipAddress, authToken) {
     const fetch = await loadFetch();
     const chalk = await import('chalk');
-    const authToken = await readAuthToken();
     let agent;
 
     if (proxy) {
@@ -150,24 +128,24 @@ async function displayHeader() {
     console.log("");
 }
 
-async function processNode(nodeId, hardwareId, proxy, ipAddress) {
+async function processNode(node, proxy, ipAddress, authToken) {
     while (true) {
         try {
-            console.log(`[${new Date().toISOString()}] Processing nodeId: ${nodeId}, hardwareId: ${hardwareId}, IP: ${ipAddress}`);
+            console.log(`[${new Date().toISOString()}] Processing nodeId: ${node.nodeId}, hardwareId: ${node.hardwareId}, IP: ${ipAddress}`);
             
-            const registrationResponse = await registerNode(nodeId, hardwareId, ipAddress, proxy);
-            console.log(`[${new Date().toISOString()}] Node registration completed for nodeId: ${nodeId}. Response:`, registrationResponse);
+            const registrationResponse = await registerNode(node.nodeId, node.hardwareId, ipAddress, proxy, authToken);
+            console.log(`[${new Date().toISOString()}] Node registration completed for nodeId: ${node.nodeId}. Response:`, registrationResponse);
             
-            const startSessionResponse = await startSession(nodeId, proxy);
-            console.log(`[${new Date().toISOString()}] Session started for nodeId: ${nodeId}. Response:`, startSessionResponse);
+            const startSessionResponse = await startSession(node.nodeId, proxy, authToken);
+            console.log(`[${new Date().toISOString()}] Session started for nodeId: ${node.nodeId}. Response:`, startSessionResponse);
             
-            console.log(`[${new Date().toISOString()}] Sending initial ping for nodeId: ${nodeId}`);
-            await pingNode(nodeId, proxy, ipAddress);
+            console.log(`[${new Date().toISOString()}] Sending initial ping for nodeId: ${node.nodeId}`);
+            await pingNode(node.nodeId, proxy, ipAddress, authToken);
 
             setInterval(async () => {
                 try {
-                    console.log(`[${new Date().toISOString()}] Sending ping for nodeId: ${nodeId}`);
-                    await pingNode(nodeId, proxy, ipAddress);
+                    console.log(`[${new Date().toISOString()}] Sending ping for nodeId: ${node.nodeId}`);
+                    await pingNode(node.nodeId, proxy, ipAddress, authToken);
                 } catch (error) {
                     console.error(`[${new Date().toISOString()}] Error during ping: ${error.message}`);
                     throw error;
@@ -177,7 +155,7 @@ async function processNode(nodeId, hardwareId, proxy, ipAddress) {
             break;
 
         } catch (error) {
-            console.error(`[${new Date().toISOString()}] Error occurred for nodeId: ${nodeId}, restarting process: ${error.message}`);
+            console.error(`[${new Date().toISOString()}] Error occurred for nodeId: ${node.nodeId}, restarting process: ${error.message}`);
         }
     }
 }
@@ -189,19 +167,13 @@ async function runAll(initialRun = true) {
             useProxy = await promptUseProxy();
         }
 
-        const ids = await readNodeAndHardwareIds();
-        const proxies = await readProxies();
+        for (const user of config) {
+            for (const node of user.nodes) {
+                const proxy = useProxy ? node.proxy : null;
+                const ipAddress = useProxy ? await fetchIpAddress(await loadFetch(), proxy ? new HttpsProxyAgent(proxy) : null) : null;
 
-        if (useProxy && proxies.length !== ids.length) {
-            throw new Error((await import('chalk')).default.yellow(`Number of proxies (${proxies.length}) does not match number of nodeId:hardwareId pairs (${ids.length})`));
-        }
-
-        for (let i = 0; i < ids.length; i++) {
-            const { nodeId, hardwareId } = ids[i];
-            const proxy = useProxy ? proxies[i] : null;
-            const ipAddress = useProxy ? await fetchIpAddress(await loadFetch(), proxy ? new HttpsProxyAgent(proxy) : null) : null;
-
-            processNode(nodeId, hardwareId, proxy, ipAddress);
+                processNode(node, proxy, ipAddress, user.usertoken);
+            }
         }
     } catch (error) {
         const chalk = await import('chalk');
