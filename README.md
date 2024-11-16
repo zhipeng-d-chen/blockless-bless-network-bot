@@ -5,6 +5,7 @@ This script automates network or node operations for Blockless Bless Network Bot
 
 ## Features
 - **Automated node interaction**
+- **Multi account**
 - **Multi NodeID**
 - **Proxy support**
 
@@ -37,7 +38,7 @@ This script automates network or node operations for Blockless Bless Network Bot
 	```bash
 	localStorage.getItem('B7S_AUTH_TOKEN')
 	```
-4. To get your nodeid and hardwareid, follow this step:
+4. To get your `nodeid` and `hardwareid`, follow this step:
 	- Download the [extension](https://chromewebstore.google.com/detail/bless/pljbjcehnhcnofmkdbjolghdcjnmekia)
 	- after you download the extension, open `chrome://extensions/?id=pljbjcehnhcnofmkdbjolghdcjnmekia`
   	- Enable `Developer mode` in top right, then press `service worker`. You will see new tab open.
