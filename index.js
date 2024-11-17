@@ -151,11 +151,12 @@ async function processNode(node, proxy, ipAddress, authToken) {
                     throw error;
                 }
             }, 60000);
-            
+
             break;
 
         } catch (error) {
-            console.error(`[${new Date().toISOString()}] Error occurred for nodeId: ${node.nodeId}, restarting process: ${error.message}`);
+            console.error(`[${new Date().toISOString()}] Error occurred for nodeId: ${node.nodeId}, restarting process in 50 seconds: ${error.message}`);
+            await new Promise(resolve => setTimeout(resolve, 50000));
         }
     }
 }
