@@ -72,8 +72,8 @@ async function main() {
                 const deviceIdentifier = await generateDeviceIdentifier(hardwareIdentifier);
                 const publicKey = generatePubKey();
 
-                const logEntry = `Device Identifier: ${chalk.green(deviceIdentifier)}\nPublic Key: ${chalk.blue(publicKey)}\n`;
-                const formattedEntry = `${nodeId}:${publicKey}:${deviceIdentifier}\n`;
+                const logEntry = `Device Identifier: ${chalk.green(deviceIdentifier)}\nPublic Key: ${chalk.yellow(publicKey)}\nNode ID: ${chalk.blue(nodeId)}\n`;
+                const formattedEntry = `${nodeId}:${deviceIdentifier}\n`;
                 console.log(logEntry);
                 
                 fs.writeFileSync('output_2.txt', formattedEntry);
