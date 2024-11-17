@@ -33,14 +33,8 @@ async function fetchIpAddress(fetch, agent) {
     return data.ip;
 }
 
-async function registerNode(nodeId, hardwareId, ipAddress, proxy, authToken) {
+async function registerNode(nodeId, hardwareId, ipAddress, agent, authToken) {
     const fetch = await loadFetch();
-    let agent;
-
-    if (proxy) {
-        agent = new HttpsProxyAgent(proxy);
-    }
-
     const registerUrl = `${apiBaseUrl}/nodes/${nodeId}`;
     console.log(`[${new Date().toISOString()}] Registering node with IP: ${ipAddress}, Hardware ID: ${hardwareId}`);
     const response = await fetch(registerUrl, {
@@ -69,14 +63,8 @@ async function registerNode(nodeId, hardwareId, ipAddress, proxy, authToken) {
     return data;
 }
 
-async function startSession(nodeId, proxy, authToken) {
+async function startSession(nodeId, agent, authToken) {
     const fetch = await loadFetch();
-    let agent;
-
-    if (proxy) {
-        agent = new HttpsProxyAgent(proxy);
-    }
-
     const startSessionUrl = `${apiBaseUrl}/nodes/${nodeId}/start-session`;
     console.log(`[${new Date().toISOString()}] Starting session for node ${nodeId}, it might take a while...`);
     const response = await fetch(startSessionUrl, {
@@ -91,17 +79,11 @@ async function startSession(nodeId, proxy, authToken) {
     return data;
 }
 
-async function pingNode(nodeId, proxy, ipAddress, authToken) {
+async function pingNode(nodeId, agent, ipAddress, authToken) {
     const fetch = await loadFetch();
     const chalk = await import('chalk');
-    let agent;
-
-    if (proxy) {
-        agent = new HttpsProxyAgent(proxy);
-    }
-
     const pingUrl = `${apiBaseUrl}/nodes/${nodeId}/ping`;
-    console.log(`[${new Date().toISOString()}] Pinging node ${nodeId} using proxy ${proxy}`);
+    console.log(`[${new Date().toISOString()}] Pinging node ${nodeId} using proxy ${agent}`);
     const response = await fetch(pingUrl, {
         method: "POST",
         headers: {
@@ -112,7 +94,7 @@ async function pingNode(nodeId, proxy, ipAddress, authToken) {
     const data = await response.json();
 
     let statusColor = data.status.toLowerCase() === 'ok' ? chalk.default.green : chalk.default.red;
-    const logMessage = `[${new Date().toISOString()}] Ping response status: ${statusColor(data.status.toUpperCase())}, NodeID: ${chalk.default.cyan(nodeId)}, Proxy: ${chalk.default.yellow(proxy)}, IP: ${chalk.default.yellow(ipAddress)}`;
+    const logMessage = `[${new Date().toISOString()}] Ping response status: ${statusColor(data.status.toUpperCase())}, NodeID: ${chalk.default.cyan(nodeId)}, Proxy: ${chalk.default.yellow(agent)}, IP: ${chalk.default.yellow(ipAddress)}`;
     console.log(logMessage);
     
     return data;
@@ -128,24 +110,24 @@ async function displayHeader() {
     console.log("");
 }
 
-async function processNode(node, proxy, ipAddress, authToken) {
+async function processNode(node, agent, ipAddress, authToken) {
     while (true) {
         try {
             console.log(`[${new Date().toISOString()}] Processing nodeId: ${node.nodeId}, hardwareId: ${node.hardwareId}, IP: ${ipAddress}`);
             
-            const registrationResponse = await registerNode(node.nodeId, node.hardwareId, ipAddress, proxy, authToken);
+            const registrationResponse = await registerNode(node.nodeId, node.hardwareId, ipAddress, agent, authToken);
             console.log(`[${new Date().toISOString()}] Node registration completed for nodeId: ${node.nodeId}. Response:`, registrationResponse);
             
-            const startSessionResponse = await startSession(node.nodeId, proxy, authToken);
+            const startSessionResponse = await startSession(node.nodeId, agent, authToken);
             console.log(`[${new Date().toISOString()}] Session started for nodeId: ${node.nodeId}. Response:`, startSessionResponse);
             
             console.log(`[${new Date().toISOString()}] Sending initial ping for nodeId: ${node.nodeId}`);
-            await pingNode(node.nodeId, proxy, ipAddress, authToken);
+            await pingNode(node.nodeId, agent, ipAddress, authToken);
 
             setInterval(async () => {
                 try {
                     console.log(`[${new Date().toISOString()}] Sending ping for nodeId: ${node.nodeId}`);
-                    await pingNode(node.nodeId, proxy, ipAddress, authToken);
+                    await pingNode(node.nodeId, agent, ipAddress, authToken);
                 } catch (error) {
                     console.error(`[${new Date().toISOString()}] Error during ping: ${error.message}`);
                     throw error;
@@ -170,10 +152,10 @@ async function runAll(initialRun = true) {
 
         for (const user of config) {
             for (const node of user.nodes) {
-                const proxy = useProxy ? node.proxy : null;
-                const ipAddress = useProxy ? await fetchIpAddress(await loadFetch(), proxy ? new HttpsProxyAgent(proxy) : null) : null;
+                const agent = useProxy ? new HttpsProxyAgent(node.proxy) : null;
+                const ipAddress = useProxy ? await fetchIpAddress(await loadFetch(), agent) : null;
 
-                processNode(node, proxy, ipAddress, user.usertoken);
+                processNode(node, agent, ipAddress, user.usertoken);
             }
         }
     } catch (error) {
