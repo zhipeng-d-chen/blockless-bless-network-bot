@@ -83,7 +83,10 @@ async function pingNode(nodeId, agent, ipAddress, authToken) {
     const fetch = await loadFetch();
     const chalk = await import('chalk');
     const pingUrl = `${apiBaseUrl}/nodes/${nodeId}/ping`;
-    console.log(`[${new Date().toISOString()}] Pinging node ${nodeId} using proxy ${agent}`);
+
+    const proxyInfo = agent ? `host: ${agent.proxy.host}, port: ${agent.proxy.port}` : 'No proxy';
+
+    console.log(`[${new Date().toISOString()}] Pinging node ${nodeId} using proxy ${proxyInfo}`);
     const response = await fetch(pingUrl, {
         method: "POST",
         headers: {
@@ -94,7 +97,7 @@ async function pingNode(nodeId, agent, ipAddress, authToken) {
     const data = await response.json();
 
     let statusColor = data.status.toLowerCase() === 'ok' ? chalk.default.green : chalk.default.red;
-    const logMessage = `[${new Date().toISOString()}] Ping response status: ${statusColor(data.status.toUpperCase())}, NodeID: ${chalk.default.cyan(nodeId)}, Proxy: ${chalk.default.yellow(agent)}, IP: ${chalk.default.yellow(ipAddress)}`;
+    const logMessage = `[${new Date().toISOString()}] Ping response status: ${statusColor(data.status.toUpperCase())}, NodeID: ${chalk.default.cyan(nodeId)}, Proxy: ${chalk.default.yellow(proxyInfo)}, IP: ${chalk.default.yellow(ipAddress)}`;
     console.log(logMessage);
     
     return data;
