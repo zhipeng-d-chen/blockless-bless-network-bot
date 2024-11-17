@@ -7,6 +7,9 @@ const apiBaseUrl = "https://gateway-run.bls.dev/api/v1";
 const ipServiceUrl = "https://tight-block-2413.txlabs.workers.dev";
 let useProxy;
 const MAX_PING_ERRORS = 3;
+const pingInterval = 120000;
+const restartDelay = 240000;
+const processRestartDelay = 30000;
 
 async function loadFetch() {
     const fetch = await import('node-fetch').then(module => module.default);
@@ -63,7 +66,6 @@ async function registerNode(nodeId, hardwareId, ipAddress, agent, authToken) {
     console.log(`[${new Date().toISOString()}] Registration response:`, data);
     return data;
 }
-
 async function startSession(nodeId, agent, authToken) {
     const fetch = await loadFetch();
     const startSessionUrl = `${apiBaseUrl}/nodes/${nodeId}/start-session`;
@@ -159,18 +161,18 @@ async function processNode(node, agent, ipAddress, authToken) {
                     pingErrorCount[node.nodeId] = (pingErrorCount[node.nodeId] || 0) + 1;
                     if (pingErrorCount[node.nodeId] >= MAX_PING_ERRORS) {
                         console.error(`[${new Date().toISOString()}] Ping failed ${MAX_PING_ERRORS} times consecutively for nodeId: ${node.nodeId}. Restarting process...`);
-                        await new Promise(resolve => setTimeout(resolve, 30000));
+                        await new Promise(resolve => setTimeout(resolve, processRestartDelay));
                         await processNode(node, agent, ipAddress, authToken); 
                     }
                     throw error;
                 }
-            }, 120000);
+            }, pingInterval);
 
             break;
 
         } catch (error) {
             console.error(`[${new Date().toISOString()}] Error occurred for nodeId: ${node.nodeId}, restarting process in 50 seconds: ${error.message}`);
-            await new Promise(resolve => setTimeout(resolve, 240000));
+            await new Promise(resolve => setTimeout(resolve, restartDelay));
         }
     }
 }
