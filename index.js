@@ -6,6 +6,7 @@ const config = require('./config');
 const apiBaseUrl = "https://gateway-run.bls.dev/api/v1";
 const ipServiceUrl = "https://tight-block-2413.txlabs.workers.dev";
 let useProxy;
+const MAX_PING_ERRORS = 3;
 
 async function loadFetch() {
     const fetch = await import('node-fetch').then(module => module.default);
@@ -56,7 +57,7 @@ async function registerNode(nodeId, hardwareId, ipAddress, agent, authToken) {
     } catch (error) {
         const text = await response.text();
         console.error(`[${new Date().toISOString()}] Failed to parse JSON. Response text:`, text);
-        throw error;
+        throw new Error(`Invalid JSON response: ${text}`);
     }
 
     console.log(`[${new Date().toISOString()}] Registration response:`, data);
@@ -74,12 +75,21 @@ async function startSession(nodeId, agent, authToken) {
         },
         agent
     });
-    const data = await response.json();
+
+    let data;
+    try {
+        data = await response.json();
+    } catch (error) {
+        const text = await response.text();
+        console.error(`[${new Date().toISOString()}] Failed to parse JSON. Response text:`, text);
+        throw new Error(`Invalid JSON response: ${text}`);
+    }
+
     console.log(`[${new Date().toISOString()}] Start session response:`, data);
     return data;
 }
 
-async function pingNode(nodeId, agent, ipAddress, authToken) {
+async function pingNode(nodeId, agent, ipAddress, authToken, pingErrorCount) {
     const fetch = await loadFetch();
     const chalk = await import('chalk');
     const pingUrl = `${apiBaseUrl}/nodes/${nodeId}/ping`;
@@ -94,15 +104,24 @@ async function pingNode(nodeId, agent, ipAddress, authToken) {
         },
         agent
     });
-    const data = await response.json();
+
+    let data;
+    try {
+        data = await response.json();
+    } catch (error) {
+        const text = await response.text();
+        console.error(`[${new Date().toISOString()}] Failed to parse JSON. Response text:`, text);
+        pingErrorCount[nodeId] = (pingErrorCount[nodeId] || 0) + 1;
+        throw new Error(`Invalid JSON response: ${text}`);
+    }
 
     let statusColor = data.status.toLowerCase() === 'ok' ? chalk.default.green : chalk.default.red;
     const logMessage = `[${new Date().toISOString()}] Ping response status: ${statusColor(data.status.toUpperCase())}, NodeID: ${chalk.default.cyan(nodeId)}, Proxy: ${chalk.default.yellow(proxyInfo)}, IP: ${chalk.default.yellow(ipAddress)}`;
     console.log(logMessage);
     
+    pingErrorCount[nodeId] = 0;
     return data;
 }
-
 
 async function displayHeader() {
     const chalk = await import('chalk');
@@ -115,6 +134,8 @@ async function displayHeader() {
 }
 
 async function processNode(node, agent, ipAddress, authToken) {
+    const pingErrorCount = {};
+
     while (true) {
         try {
             console.log(`[${new Date().toISOString()}] Processing nodeId: ${node.nodeId}, hardwareId: ${node.hardwareId}, IP: ${ipAddress}`);
@@ -126,23 +147,30 @@ async function processNode(node, agent, ipAddress, authToken) {
             console.log(`[${new Date().toISOString()}] Session started for nodeId: ${node.nodeId}. Response:`, startSessionResponse);
             
             console.log(`[${new Date().toISOString()}] Sending initial ping for nodeId: ${node.nodeId}`);
-            await pingNode(node.nodeId, agent, ipAddress, authToken);
+            await pingNode(node.nodeId, agent, ipAddress, authToken, pingErrorCount);
 
             setInterval(async () => {
                 try {
                     console.log(`[${new Date().toISOString()}] Sending ping for nodeId: ${node.nodeId}`);
-                    await pingNode(node.nodeId, agent, ipAddress, authToken);
+                    await pingNode(node.nodeId, agent, ipAddress, authToken, pingErrorCount);
                 } catch (error) {
                     console.error(`[${new Date().toISOString()}] Error during ping: ${error.message}`);
+                    
+                    pingErrorCount[node.nodeId] = (pingErrorCount[node.nodeId] || 0) + 1;
+                    if (pingErrorCount[node.nodeId] >= MAX_PING_ERRORS) {
+                        console.error(`[${new Date().toISOString()}] Ping failed ${MAX_PING_ERRORS} times consecutively for nodeId: ${node.nodeId}. Restarting process...`);
+                        await new Promise(resolve => setTimeout(resolve, 30000));
+                        await processNode(node, agent, ipAddress, authToken); 
+                    }
                     throw error;
                 }
-            }, 60000);
+            }, 120000);
 
             break;
 
         } catch (error) {
             console.error(`[${new Date().toISOString()}] Error occurred for nodeId: ${node.nodeId}, restarting process in 50 seconds: ${error.message}`);
-            await new Promise(resolve => setTimeout(resolve, 50000));
+            await new Promise(resolve => setTimeout(resolve, 240000));
         }
     }
 }
