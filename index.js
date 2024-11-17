@@ -84,7 +84,7 @@ async function pingNode(nodeId, agent, ipAddress, authToken) {
     const chalk = await import('chalk');
     const pingUrl = `${apiBaseUrl}/nodes/${nodeId}/ping`;
 
-    const proxyInfo = agent ? `host: ${agent.proxy.host}, port: ${agent.proxy.port}` : 'No proxy';
+    const proxyInfo = agent ? JSON.stringify(agent.proxy) : 'No proxy';
 
     console.log(`[${new Date().toISOString()}] Pinging node ${nodeId} using proxy ${proxyInfo}`);
     const response = await fetch(pingUrl, {
@@ -102,6 +102,7 @@ async function pingNode(nodeId, agent, ipAddress, authToken) {
     
     return data;
 }
+
 
 async function displayHeader() {
     const chalk = await import('chalk');
