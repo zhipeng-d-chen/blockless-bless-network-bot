@@ -117,6 +117,12 @@ async function pingNode(nodeId, agent, ipAddress, authToken, pingErrorCount) {
         throw new Error(`Invalid JSON response: ${text}`);
     }
 
+    if (!data.status) {
+        console.error(`[${new Date().toISOString()}] Missing 'status' in response data:`, data);
+        pingErrorCount[nodeId] = (pingErrorCount[nodeId] || 0) + 1;
+        throw new Error(`'status' field is missing in response data: ${JSON.stringify(data)}`);
+    }
+
     let statusColor = data.status.toLowerCase() === 'ok' ? chalk.default.green : chalk.default.red;
     const logMessage = `[${new Date().toISOString()}] Ping response status: ${statusColor(data.status.toUpperCase())}, NodeID: ${chalk.default.cyan(nodeId)}, Proxy: ${chalk.default.yellow(proxyInfo)}, IP: ${chalk.default.yellow(ipAddress)}`;
     console.log(logMessage);
@@ -137,6 +143,7 @@ async function displayHeader() {
 
 async function processNode(node, agent, ipAddress, authToken) {
     const pingErrorCount = {};
+    let intervalId = null;
 
     while (true) {
         try {
@@ -151,22 +158,26 @@ async function processNode(node, agent, ipAddress, authToken) {
             console.log(`[${new Date().toISOString()}] Sending initial ping for nodeId: ${node.nodeId}`);
             await pingNode(node.nodeId, agent, ipAddress, authToken, pingErrorCount);
 
-            setInterval(async () => {
-                try {
-                    console.log(`[${new Date().toISOString()}] Sending ping for nodeId: ${node.nodeId}`);
-                    await pingNode(node.nodeId, agent, ipAddress, authToken, pingErrorCount);
-                } catch (error) {
-                    console.error(`[${new Date().toISOString()}] Error during ping: ${error.message}`);
-                    
-                    pingErrorCount[node.nodeId] = (pingErrorCount[node.nodeId] || 0) + 1;
-                    if (pingErrorCount[node.nodeId] >= MAX_PING_ERRORS) {
-                        console.error(`[${new Date().toISOString()}] Ping failed ${MAX_PING_ERRORS} times consecutively for nodeId: ${node.nodeId}. Restarting process...`);
-                        await new Promise(resolve => setTimeout(resolve, processRestartDelay));
-                        await processNode(node, agent, ipAddress, authToken); 
+            if (!intervalId) {
+                intervalId = setInterval(async () => {
+                    try {
+                        console.log(`[${new Date().toISOString()}] Sending ping for nodeId: ${node.nodeId}`);
+                        await pingNode(node.nodeId, agent, ipAddress, authToken, pingErrorCount);
+                    } catch (error) {
+                        console.error(`[${new Date().toISOString()}] Error during ping: ${error.message}`);
+                        
+                        pingErrorCount[node.nodeId] = (pingErrorCount[node.nodeId] || 0) + 1;
+                        if (pingErrorCount[node.nodeId] >= MAX_PING_ERRORS) {
+                            clearInterval(intervalId);
+                            intervalId = null;
+                            console.error(`[${new Date().toISOString()}] Ping failed ${MAX_PING_ERRORS} times consecutively for nodeId: ${node.nodeId}. Restarting process...`);
+                            await new Promise(resolve => setTimeout(resolve, processRestartDelay));
+                            await processNode(node, agent, ipAddress, authToken); 
+                        }
+                        throw error;
                     }
-                    throw error;
-                }
-            }, pingInterval);
+                }, pingInterval);
+            }
 
             break;
 
