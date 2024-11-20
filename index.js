@@ -143,6 +143,7 @@ async function displayHeader() {
 }
 
 const activeNodes = new Set();
+const nodeIntervals = new Map();
 
 async function processNode(node, agent, ipAddress, authToken) {
     const pingErrorCount = {};
@@ -167,7 +168,7 @@ async function processNode(node, agent, ipAddress, authToken) {
             console.log(`[${new Date().toISOString()}] Sending initial ping for nodeId: ${node.nodeId}`);
             await pingNode(node.nodeId, agent, ipAddress, authToken, pingErrorCount);
 
-            if (!intervalId) {
+            if (!nodeIntervals.has(node.nodeId)) {
                 intervalId = setInterval(async () => {
                     try {
                         console.log(`[${new Date().toISOString()}] Sending ping for nodeId: ${node.nodeId}`);
@@ -177,8 +178,8 @@ async function processNode(node, agent, ipAddress, authToken) {
 
                         pingErrorCount[node.nodeId] = (pingErrorCount[node.nodeId] || 0) + 1;
                         if (pingErrorCount[node.nodeId] >= MAX_PING_ERRORS) {
-                            clearInterval(intervalId);
-                            intervalId = null;
+                            clearInterval(nodeIntervals.get(node.nodeId));
+                            nodeIntervals.delete(node.nodeId);
                             activeNodes.delete(node.nodeId);
                             console.error(`[${new Date().toISOString()}] Ping failed ${MAX_PING_ERRORS} times consecutively for nodeId: ${node.nodeId}. Restarting process...`);
                             await new Promise(resolve => setTimeout(resolve, processRestartDelay));
@@ -187,6 +188,7 @@ async function processNode(node, agent, ipAddress, authToken) {
                         throw error;
                     }
                 }, pingInterval);
+                nodeIntervals.set(node.nodeId, intervalId);
             }
 
             break;
