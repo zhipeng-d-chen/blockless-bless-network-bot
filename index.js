@@ -119,14 +119,14 @@ async function pingNode(nodeId, agent, ipAddress, authToken, pingErrorCount) {
     }
 
     if (!data.status) {
-        console.error(`[${new Date().toISOString()}] Missing 'status' in response data:`, data);
-        pingErrorCount[nodeId] = (pingErrorCount[nodeId] || 0) + 1;
-        throw new Error(`'status' field is missing in response data: ${JSON.stringify(data)}`);
+        console.log(
+            `[${new Date().toISOString()}] ${chalk.default.green('First time ping initiate')}, NodeID: ${chalk.default.cyan(nodeId)}, Proxy: ${chalk.default.yellow(proxyInfo)}, IP: ${chalk.default.yellow(ipAddress)}`
+        );
+    } else {
+        let statusColor = data.status.toLowerCase() === 'ok' ? chalk.default.green : chalk.default.red;
+        const logMessage = `[${new Date().toISOString()}] Ping response status: ${statusColor(data.status.toUpperCase())}, NodeID: ${chalk.default.cyan(nodeId)}, Proxy: ${chalk.default.yellow(proxyInfo)}, IP: ${chalk.default.yellow(ipAddress)}`;
+        console.log(logMessage);
     }
-
-    let statusColor = data.status.toLowerCase() === 'ok' ? chalk.default.green : chalk.default.red;
-    const logMessage = `[${new Date().toISOString()}] Ping response status: ${statusColor(data.status.toUpperCase())}, NodeID: ${chalk.default.cyan(nodeId)}, Proxy: ${chalk.default.yellow(proxyInfo)}, IP: ${chalk.default.yellow(ipAddress)}`;
-    console.log(logMessage);
 
     pingErrorCount[nodeId] = 0;
     return data;
