@@ -67,6 +67,7 @@ async function registerNode(nodeId, hardwareId, ipAddress, agent, authToken) {
     console.log(`[${new Date().toISOString()}] Registration response:`, data);
     return data;
 }
+
 async function startSession(nodeId, agent, authToken) {
     const fetch = await loadFetch();
     const startSessionUrl = `${apiBaseUrl}/nodes/${nodeId}/start-session`;
@@ -118,10 +119,16 @@ async function pingNode(nodeId, agent, ipAddress, authToken, pingErrorCount) {
         throw new Error(`Invalid JSON response: ${text}`);
     }
 
-    let statusColor = data.status.toLowerCase() === 'ok' ? chalk.default.green : chalk.default.red;
-    const logMessage = `[${new Date().toISOString()}] Ping response status: ${statusColor(data.status.toUpperCase())}, NodeID: ${chalk.default.cyan(nodeId)}, Proxy: ${chalk.default.yellow(proxyInfo)}, IP: ${chalk.default.yellow(ipAddress)}`;
-    console.log(logMessage);
-    
+    if (!data.status) {
+        console.log(
+            `[${new Date().toISOString()}] ${chalk.default.green('First time ping initiate')}, NodeID: ${chalk.default.cyan(nodeId)}, Proxy: ${chalk.default.yellow(proxyInfo)}, IP: ${chalk.default.yellow(ipAddress)}`
+        );
+    } else {
+        let statusColor = data.status.toLowerCase() === 'ok' ? chalk.default.green : chalk.default.red;
+        const logMessage = `[${new Date().toISOString()}] Ping response status: ${statusColor(data.status.toUpperCase())}, NodeID: ${chalk.default.cyan(nodeId)}, Proxy: ${chalk.default.yellow(proxyInfo)}, IP: ${chalk.default.yellow(ipAddress)}`;
+        console.log(logMessage);
+    }
+
     pingErrorCount[nodeId] = 0;
     return data;
 }
@@ -136,44 +143,62 @@ async function displayHeader() {
     console.log("");
 }
 
+const activeNodes = new Set();
+const nodeIntervals = new Map();
+
 async function processNode(node, agent, ipAddress, authToken) {
     const pingErrorCount = {};
+    let intervalId = null;
 
     while (true) {
         try {
+            if (activeNodes.has(node.nodeId)) {
+                console.log(`[${new Date().toISOString()}] Node ${node.nodeId} is already being processed.`);
+                return;
+            }
+
+            activeNodes.add(node.nodeId);
             console.log(`[${new Date().toISOString()}] Processing nodeId: ${node.nodeId}, hardwareId: ${node.hardwareId}, IP: ${ipAddress}`);
-            
+
             const registrationResponse = await registerNode(node.nodeId, node.hardwareId, ipAddress, agent, authToken);
             console.log(`[${new Date().toISOString()}] Node registration completed for nodeId: ${node.nodeId}. Response:`, registrationResponse);
-            
+
             const startSessionResponse = await startSession(node.nodeId, agent, authToken);
             console.log(`[${new Date().toISOString()}] Session started for nodeId: ${node.nodeId}. Response:`, startSessionResponse);
-            
+
             console.log(`[${new Date().toISOString()}] Sending initial ping for nodeId: ${node.nodeId}`);
             await pingNode(node.nodeId, agent, ipAddress, authToken, pingErrorCount);
 
-            setInterval(async () => {
-                try {
-                    console.log(`[${new Date().toISOString()}] Sending ping for nodeId: ${node.nodeId}`);
-                    await pingNode(node.nodeId, agent, ipAddress, authToken, pingErrorCount);
-                } catch (error) {
-                    console.error(`[${new Date().toISOString()}] Error during ping: ${error.message}`);
-                    
-                    pingErrorCount[node.nodeId] = (pingErrorCount[node.nodeId] || 0) + 1;
-                    if (pingErrorCount[node.nodeId] >= MAX_PING_ERRORS) {
-                        console.error(`[${new Date().toISOString()}] Ping failed ${MAX_PING_ERRORS} times consecutively for nodeId: ${node.nodeId}. Restarting process...`);
-                        await new Promise(resolve => setTimeout(resolve, processRestartDelay));
-                        await processNode(node, agent, ipAddress, authToken); 
+            if (!nodeIntervals.has(node.nodeId)) {
+                intervalId = setInterval(async () => {
+                    try {
+                        console.log(`[${new Date().toISOString()}] Sending ping for nodeId: ${node.nodeId}`);
+                        await pingNode(node.nodeId, agent, ipAddress, authToken, pingErrorCount);
+                    } catch (error) {
+                        console.error(`[${new Date().toISOString()}] Error during ping: ${error.message}`);
+
+                        pingErrorCount[node.nodeId] = (pingErrorCount[node.nodeId] || 0) + 1;
+                        if (pingErrorCount[node.nodeId] >= MAX_PING_ERRORS) {
+                            clearInterval(nodeIntervals.get(node.nodeId));
+                            nodeIntervals.delete(node.nodeId);
+                            activeNodes.delete(node.nodeId);
+                            console.error(`[${new Date().toISOString()}] Ping failed ${MAX_PING_ERRORS} times consecutively for nodeId: ${node.nodeId}. Restarting process...`);
+                            await new Promise(resolve => setTimeout(resolve, processRestartDelay));
+                            await processNode(node, agent, ipAddress, authToken);
+                        }
+                        throw error;
                     }
-                    throw error;
-                }
-            }, pingInterval);
+                }, pingInterval);
+                nodeIntervals.set(node.nodeId, intervalId);
+            }
 
             break;
 
         } catch (error) {
             console.error(`[${new Date().toISOString()}] Error occurred for nodeId: ${node.nodeId}, restarting process in 50 seconds: ${error.message}`);
             await new Promise(resolve => setTimeout(resolve, restartDelay));
+        } finally {
+            activeNodes.delete(node.nodeId);
         }
     }
 }
