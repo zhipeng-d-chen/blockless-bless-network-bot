@@ -1,5 +1,6 @@
 const fs = require('fs').promises;
 const { HttpsProxyAgent } = require('https-proxy-agent');
+const { SocksProxyAgent } = require('socks-proxy-agent');
 const readline = require('readline');
 const config = require('./config');
 
@@ -211,7 +212,15 @@ async function runAll(initialRun = true) {
 
         for (const user of config) {
             for (const node of user.nodes) {
-                const agent = useProxy ? new HttpsProxyAgent(node.proxy) : null;
+                let agent = null;
+                if (useProxy && node.proxy) {
+                    if (node.proxy.startsWith('socks')) {
+                        agent = new SocksProxyAgent(node.proxy);
+                    } else {
+                        const proxyUrl = node.proxy.startsWith('http') ? node.proxy : `http://${node.proxy}`;
+                        agent = new HttpsProxyAgent(proxyUrl);
+                    }
+                }
                 const ipAddress = useProxy ? await fetchIpAddress(await loadFetch(), agent) : null;
 
                 processNode(node, agent, ipAddress, user.usertoken);
