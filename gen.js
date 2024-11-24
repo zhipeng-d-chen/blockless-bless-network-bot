@@ -3,19 +3,7 @@ const fs = require('fs');
 const readline = require('readline');
 
 function getRandomHardwareIdentifier() {
-    const randomCpuArchitecture = Math.random() > 0.5 ? 'x64' : 'x86';
-    const randomCpuModel = `Fake CPU Model ${Math.floor(Math.random() * 1000)}`;
-    const randomNumOfProcessors = Math.floor(Math.random() * 8) + 1;
-    const randomTotalMemory = Math.floor(Math.random() * 16 + 1) * 1024 * 1024 * 1024;
-
-    const cpuInfo = {
-        cpuArchitecture: randomCpuArchitecture,
-        cpuModel: randomCpuModel,
-        numOfProcessors: randomNumOfProcessors,
-        totalMemory: randomTotalMemory
-    };
-
-    return Buffer.from(JSON.stringify(cpuInfo)).toString('base64');
+    return crypto.randomBytes(32).toString('hex');
 }
 
 function getHardwareIdentifierFromNodeId(nodeId) {
@@ -44,7 +32,7 @@ async function generateDeviceIdentifier(hardwareIdentifier) {
 function generatePubKey(length = 52) {
     const prefix = "12D3KooW";
     const remainingLength = length - prefix.length;
-    const characters = 'ABCDEFGHIJKLMNOPQRSTUVWXYZ0123456789';
+    const characters = 'ABCDEFGHIJKLMNOPQRSTUVWXYZabcdefghijklmnopqrstuvwxyz0123456789';
     let remainingChars = '';
 
     for (let i = 0; i < remainingLength; i++) {
@@ -65,7 +53,7 @@ async function main() {
 
     console.log(chalk.red.bold('This is only for testing purposes, I do not recommend using it'));
 
-    rl.question(chalk.cyan('Which mode do you want to use? (1 = Random, 2 = Custom Node ID): '), async (mode) => {
+    rl.question(chalk.cyan('Which mode do you want to use? (1 = Random, 2 = Custom Node ID, 3 = Random Hardware ID): '), async (mode) => {
         if (mode === '2') {
             rl.question(chalk.cyan('Enter your custom Node ID: '), async (nodeId) => {
                 const hardwareIdentifier = getHardwareIdentifierFromNodeId(nodeId);
@@ -81,6 +69,24 @@ async function main() {
 
                 rl.close();
             });
+        } else if (mode === '3') {
+            rl.question(chalk.cyan('How many hardware identifiers do you want to generate? '), async (answer) => {
+                const total = parseInt(answer);
+                let output = '';
+
+                for (let i = 0; i < total; i++) {
+                    const hardwareIdentifier = getRandomHardwareIdentifier();
+                    const logEntry = `Hardware Identifier ${i + 1}: ${chalk.green(hardwareIdentifier)}\n`;
+                    const formattedEntry = `${hardwareIdentifier}\n`;
+                    output += formattedEntry;
+                    console.log(logEntry);
+                }
+
+                fs.writeFileSync('output_3.txt', output);
+                console.log(chalk.yellow('Data saved to output_3.txt'));
+
+                rl.close();
+            });
         } else {
             rl.question(chalk.cyan('How many identifiers do you want to generate? '), async (answer) => {
                 const total = parseInt(answer);
@@ -91,7 +97,7 @@ async function main() {
                     const hardwareIdentifier = getHardwareIdentifierFromNodeId(nodeId);
                     const deviceIdentifier = await generateDeviceIdentifier(hardwareIdentifier);
 
-                    const logEntry = `Device Identifier ${i + 1}: ${chalk.green(deviceIdentifier)}\nPublic Key ${i + 1}: ${chalk.blue(nodeId)}\n`;
+                    const logEntry = `Device Identifier ${i + 1}: ${chalk.green(deviceIdentifier)}\nNode ID ${i + 1}: ${chalk.blue(nodeId)}\n`;
                     const formattedEntry = `${nodeId}:${deviceIdentifier}\n`;
                     output += formattedEntry;
                     console.log(logEntry);
