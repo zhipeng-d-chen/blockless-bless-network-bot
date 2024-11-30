@@ -16,16 +16,16 @@ This script automates network or node operations for Blockless Bless Network.
 
 1. Clone the repository to your local machine:
    ```bash
-	git clone https://github.com/recitativonika/blockless-bless-network-bot.git
+   git clone https://github.com/recitativonika/blockless-bless-network-bot.git
    ```
 2. Navigate to the project directory:
-	```bash
-	cd blockless-bless-network-bot
-	```
-3. Install the necessary dependencies:
-	```bash
-	npm install
-	```
+   ```bash
+   cd blockless-bless-network-bot
+   ```
+4. Install the necessary dependencies:
+   ```bash
+   npm install
+   ```
 
 ## Usage
 1. Register to blockless bless network account first, if you dont have you can register [here](https://bless.network/dashboard?ref=84PLBS).
