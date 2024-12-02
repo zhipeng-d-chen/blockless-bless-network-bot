@@ -53,7 +53,7 @@ async function main() {
 
     console.log(chalk.red.bold('This is only for testing purposes, I do not recommend using it'));
 
-    rl.question(chalk.cyan('Which mode do you want to use? (1 = Random, 2 = Custom Node ID, 3 = Random Hardware ID): '), async (mode) => {
+    rl.question(chalk.cyan('Which mode do you want to use? (1 = Random NodeID and HardwareID, 2 = HardwareID randomness with NodeID, 3 = Random HardwareID): '), async (mode) => {
         if (mode === '2') {
             rl.question(chalk.cyan('Enter your custom Node ID: '), async (nodeId) => {
                 const hardwareIdentifier = getHardwareIdentifierFromNodeId(nodeId);
