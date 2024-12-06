@@ -11,6 +11,7 @@ const MAX_PING_ERRORS = 3;
 const pingInterval = 120000;
 const restartDelay = 240000;
 const processRestartDelay = 30000;
+const retryDelay = 900000;
 
 async function loadFetch() {
     const fetch = await import('node-fetch').then(module => module.default);
@@ -31,11 +32,16 @@ async function promptUseProxy() {
     });
 }
 
-async function fetchIpAddress(fetch, agent) {
-    const response = await fetch(ipServiceUrl, { agent });
-    const data = await response.json();
-    console.log(`[${new Date().toISOString()}] IP fetch response:`, data);
-    return data.ip;
+async function fetchIpAddress(fetch, agent = null) {
+    try {
+        const response = await fetch(ipServiceUrl, { agent });
+        const data = await response.json();
+        console.log(`[${new Date().toISOString()}] IP fetch response:`, data);
+        return data.ip;
+    } catch (error) {
+        console.error(`[${new Date().toISOString()}] Failed to fetch IP address: ${error.message}`);
+        return null;
+    }
 }
 
 async function registerNode(nodeId, hardwareId, ipAddress, agent, authToken) {
@@ -55,17 +61,15 @@ async function registerNode(nodeId, hardwareId, ipAddress, agent, authToken) {
         agent
     });
 
-    let data;
     try {
-        data = await response.json();
+        const data = await response.json();
+        console.log(`[${new Date().toISOString()}] Registration response:`, data);
+        return data;
     } catch (error) {
         const text = await response.text();
         console.error(`[${new Date().toISOString()}] Failed to parse JSON. Response text:`, text);
         throw new Error(`Invalid JSON response: ${text}`);
     }
-
-    console.log(`[${new Date().toISOString()}] Registration response:`, data);
-    return data;
 }
 
 async function startSession(nodeId, agent, authToken) {
@@ -80,17 +84,15 @@ async function startSession(nodeId, agent, authToken) {
         agent
     });
 
-    let data;
     try {
-        data = await response.json();
+        const data = await response.json();
+        console.log(`[${new Date().toISOString()}] Start session response:`, data);
+        return data;
     } catch (error) {
         const text = await response.text();
         console.error(`[${new Date().toISOString()}] Failed to parse JSON. Response text:`, text);
         throw new Error(`Invalid JSON response: ${text}`);
     }
-
-    console.log(`[${new Date().toISOString()}] Start session response:`, data);
-    return data;
 }
 
 async function pingNode(nodeId, agent, ipAddress, authToken, pingErrorCount) {
@@ -109,28 +111,25 @@ async function pingNode(nodeId, agent, ipAddress, authToken, pingErrorCount) {
         agent
     });
 
-    let data;
     try {
-        data = await response.json();
+        const data = await response.json();
+        if (!data.status) {
+            console.log(
+                `[${new Date().toISOString()}] ${chalk.default.green('First time ping initiate')}, NodeID: ${chalk.default.cyan(nodeId)}, Proxy: ${chalk.default.yellow(proxyInfo)}, IP: ${chalk.default.yellow(ipAddress)}`
+            );
+        } else {
+            let statusColor = data.status.toLowerCase() === 'ok' ? chalk.default.green : chalk.default.red;
+            const logMessage = `[${new Date().toISOString()}] Ping response status: ${statusColor(data.status.toUpperCase())}, NodeID: ${chalk.default.cyan(nodeId)}, Proxy: ${chalk.default.yellow(proxyInfo)}, IP: ${chalk.default.yellow(ipAddress)}`;
+            console.log(logMessage);
+        }
+        pingErrorCount[nodeId] = 0;
+        return data;
     } catch (error) {
         const text = await response.text();
         console.error(`[${new Date().toISOString()}] Failed to parse JSON. Response text:`, text);
-        pingErrorCount[nodeId] = (pingErrorCount[nodeId] || 0) + 1;
+        pingErrorCount[node.nodeId] = (pingErrorCount[node.nodeId] || 0) + 1;
         throw new Error(`Invalid JSON response: ${text}`);
     }
-
-    if (!data.status) {
-        console.log(
-            `[${new Date().toISOString()}] ${chalk.default.green('First time ping initiate')}, NodeID: ${chalk.default.cyan(nodeId)}, Proxy: ${chalk.default.yellow(proxyInfo)}, IP: ${chalk.default.yellow(ipAddress)}`
-        );
-    } else {
-        let statusColor = data.status.toLowerCase() === 'ok' ? chalk.default.green : chalk.default.red;
-        const logMessage = `[${new Date().toISOString()}] Ping response status: ${statusColor(data.status.toUpperCase())}, NodeID: ${chalk.default.cyan(nodeId)}, Proxy: ${chalk.default.yellow(proxyInfo)}, IP: ${chalk.default.yellow(ipAddress)}`;
-        console.log(logMessage);
-    }
-
-    pingErrorCount[nodeId] = 0;
-    return data;
 }
 
 async function displayHeader() {
@@ -186,7 +185,6 @@ async function processNode(node, agent, ipAddress, authToken) {
                             await new Promise(resolve => setTimeout(resolve, processRestartDelay));
                             await processNode(node, agent, ipAddress, authToken);
                         }
-                        throw error;
                     }
                 }, pingInterval);
                 nodeIntervals.set(node.nodeId, intervalId);
@@ -195,8 +193,13 @@ async function processNode(node, agent, ipAddress, authToken) {
             break;
 
         } catch (error) {
-            console.error(`[${new Date().toISOString()}] Error occurred for nodeId: ${node.nodeId}, restarting process in 50 seconds: ${error.message}`);
-            await new Promise(resolve => setTimeout(resolve, restartDelay));
+            if (error.message.includes('proxy') || error.message.includes('connect') || error.message.includes('authenticate')) {
+                console.error(`[${new Date().toISOString()}] Proxy error for nodeId: ${node.nodeId}, retrying in 15 minutes: ${error.message}`);
+                setTimeout(() => processNode(node, agent, ipAddress, authToken), retryDelay);
+            } else {
+                console.error(`[${new Date().toISOString()}] Error occurred for nodeId: ${node.nodeId}, restarting process in 50 seconds: ${error.message}`);
+                await new Promise(resolve => setTimeout(resolve, restartDelay));
+            }
         } finally {
             activeNodes.delete(node.nodeId);
         }
@@ -210,8 +213,11 @@ async function runAll(initialRun = true) {
             useProxy = await promptUseProxy();
         }
 
-        for (const user of config) {
-            for (const node of user.nodes) {
+        const fetch = await loadFetch();
+        const publicIpAddress = useProxy ? null : await fetchIpAddress(fetch);
+
+        const nodePromises = config.flatMap(user =>
+            user.nodes.map(async node => {
                 let agent = null;
                 if (useProxy && node.proxy) {
                     if (node.proxy.startsWith('socks')) {
@@ -221,11 +227,27 @@ async function runAll(initialRun = true) {
                         agent = new HttpsProxyAgent(proxyUrl);
                     }
                 }
-                const ipAddress = useProxy ? await fetchIpAddress(await loadFetch(), agent) : null;
+                let ipAddress = useProxy ? await fetchIpAddress(fetch, agent) : publicIpAddress;
 
-                processNode(node, agent, ipAddress, user.usertoken);
-            }
-        }
+                if (ipAddress) {
+                    await processNode(node, agent, ipAddress, user.usertoken).catch(error => {
+                        console.error(`[${new Date().toISOString()}] Error processing node ${node.nodeId}: ${error.message}`);
+                    });
+                } else {
+                    console.error(`[${new Date().toISOString()}] Skipping node ${node.nodeId} due to IP fetch failure. Retrying in 15 minutes.`);
+                    setTimeout(async () => {
+                        ipAddress = await fetchIpAddress(fetch, agent);
+                        if (ipAddress) {
+                            await processNode(node, agent, ipAddress, user.usertoken);
+                        } else {
+                            console.error(`[${new Date().toISOString()}] Failed to fetch IP address again for node ${node.nodeId}.`);
+                        }
+                    }, retryDelay);
+                }
+            })
+        );
+
+        await Promise.allSettled(nodePromises);
     } catch (error) {
         const chalk = await import('chalk');
         console.error(chalk.default.yellow(`[${new Date().toISOString()}] An error occurred: ${error.message}`));
