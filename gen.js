@@ -1,6 +1,6 @@
+const readline = require('readline');
 const crypto = require('crypto');
 const fs = require('fs');
-const readline = require('readline');
 
 function getRandomHardwareIdentifier() {
     return crypto.randomBytes(32).toString('hex');
@@ -53,17 +53,23 @@ async function main() {
 
     console.log(chalk.red.bold('This is only for testing purposes, I do not recommend using it'));
 
-    rl.question(chalk.cyan('Which mode do you want to use? (1 = Random NodeID and HardwareID, 2 = HardwareID randomness with NodeID, 3 = Random HardwareID): '), async (mode) => {
+    console.log(chalk.cyan('Select mode:'));
+    console.log(chalk.cyan('1. Randomize NodeID and HardwareID using NodeID for HWID seed'));
+    console.log(chalk.cyan('2. HardwareID randomness with NodeID'));
+    console.log(chalk.cyan('3. Pure Random HardwareID'));
+    console.log(chalk.cyan('4. Pure Random NodeID and HardwareID'));
+
+    rl.question(chalk.cyan('Enter the mode number: '), async (mode) => {
         if (mode === '2') {
             rl.question(chalk.cyan('Enter your custom Node ID: '), async (nodeId) => {
                 const hardwareIdentifier = getHardwareIdentifierFromNodeId(nodeId);
                 const deviceIdentifier = await generateDeviceIdentifier(hardwareIdentifier);
                 const publicKey = generatePubKey();
 
-                const logEntry = `Device Identifier: ${chalk.green(deviceIdentifier)}\nPublic Key: ${chalk.yellow(publicKey)}\nNode ID: ${chalk.blue(nodeId)}\n`;
+                const logEntry = `Device Identifier: ${chalk.green(deviceIdentifier)}\nNode ID: ${chalk.blue(nodeId)}\n`;
                 const formattedEntry = `${nodeId}:${deviceIdentifier}\n`;
                 console.log(logEntry);
-                
+
                 fs.writeFileSync('output_2.txt', formattedEntry);
                 console.log(chalk.yellow('Data saved to output_2.txt'));
 
@@ -84,6 +90,27 @@ async function main() {
 
                 fs.writeFileSync('output_3.txt', output);
                 console.log(chalk.yellow('Data saved to output_3.txt'));
+
+                rl.close();
+            });
+        } else if (mode === '4') {
+            rl.question(chalk.cyan('How many device identifiers do you want to generate? '), async (answer) => {
+                const total = parseInt(answer);
+                let output = '';
+
+                for (let i = 0; i < total; i++) {
+                    const nodeId = generatePubKey();
+                    const hardwareIdentifier = getRandomHardwareIdentifier();
+                    const deviceIdentifier = await generateDeviceIdentifier(hardwareIdentifier);
+
+                    const logEntry = `Device Identifier ${i + 1}: ${chalk.green(deviceIdentifier)}\nNode ID ${i + 1}: ${chalk.blue(nodeId)}\n`;
+                    const formattedEntry = `${nodeId}:${deviceIdentifier}\n`;
+                    output += formattedEntry;
+                    console.log(logEntry);
+                }
+
+                fs.writeFileSync('output_4.txt', output);
+                console.log(chalk.yellow('Data saved to output_4.txt'));
 
                 rl.close();
             });
