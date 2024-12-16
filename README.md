@@ -74,7 +74,8 @@ This script automates network or node operations for Blockless Bless Network.
 	```bash
 	node index.js
 	```
-**NOTE: The total time is refreshed every 10minute connection, One account only can have 5 nodeid max and can't be deleted, I recomended to save your Nodeid(pubkey) and hardwareid of your account**
+**NOTE: The total time is refreshed every 10minute connection, One account only can have 5 nodeid connected, I recomended to save your Nodeid(pubkey) and hardwareid of your account**
+**      Your hardwareinfo data of the nodeid is saved in hardwareInfo.json when you running the script, please do not delete this file. If you add more nodeid or accounts, it will automatically add the data when you start the script**
 
 ## License
 This project is licensed under the MIT License. See the [LICENSE](LICENSE) file for more details.
