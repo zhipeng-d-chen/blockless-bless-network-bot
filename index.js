@@ -813,7 +813,6 @@ async function runAll(initialRun = true) {
             });
         });
 
-        // Save updated hardware info
         await saveHardwareInfo(hardwareInfo);
 
         const nodePromises = config.flatMap(user =>
