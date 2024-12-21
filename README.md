@@ -45,7 +45,8 @@ This script automates network or node operations for Blockless Bless Network.
     ![image](https://github.com/user-attachments/assets/63151405-cd49-4dff-9eec-a787a9aa3144)
 	- Go to `network` tab, then open the `Bless extension` and login to your account.
   	- After you login to your account, search name with your pubkey (example : `12D3xxxx`), open and copy the `pubkey` and `hardwareid`
-    Or you can use `gen.js` and run with this to get NodeID and HardwareID
+
+     	-Or you can use `gen.js` and run with this to get NodeID and HardwareID
 	```bash
  	node gen.js
  	```
