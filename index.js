@@ -6,7 +6,6 @@ const readline = require('readline');
 const config = require('./config');
 
 const apiBaseUrl = "https://gateway-run.bls.dev/api/v1";
-const ipServiceUrl = "https://ip-check.bless.network/";
 let useProxy;
 const MAX_PING_ERRORS = 3;
 const pingInterval = 120000;
@@ -35,14 +34,27 @@ async function promptUseProxy() {
 }
 
 async function fetchIpAddress(fetch, agent = null) {
+    const primaryUrl = "https://ip-check.bless.network/";
+    const fallbackUrl = "https://api.ipify.org?format=json";
+
     try {
-        const response = await fetch(ipServiceUrl, { agent });
+        const response = await fetch(primaryUrl, { agent });
         const data = await response.json();
-        console.log(`[${new Date().toISOString()}] IP fetch response:`, data);
+        console.log(`[${new Date().toISOString()}] IP fetch response from primary URL:`, data);
         return data.ip;
     } catch (error) {
-        console.error(`[${new Date().toISOString()}] Failed to fetch IP address: ${error.message}`);
-        return null;
+        console.error(`[${new Date().toISOString()}] Failed to fetch IP address from primary URL: ${error.message}`);
+        console.log(`[${new Date().toISOString()}] Attempting to fetch IP address from fallback URL...`);
+
+        try {
+            const response = await fetch(fallbackUrl, { agent });
+            const data = await response.json();
+            console.log(`[${new Date().toISOString()}] IP fetch response from fallback URL:`, data);
+            return data.ip;
+        } catch (fallbackError) {
+            console.error(`[${new Date().toISOString()}] Failed to fetch IP address from fallback URL: ${fallbackError.message}`);
+            return null;
+        }
     }
 }
 
