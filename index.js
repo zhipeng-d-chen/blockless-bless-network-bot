@@ -49,18 +49,37 @@ async function fetchIpAddress(fetch, agent = null) {
         console.log(`[${new Date().toISOString()}] IP fetch response from primary URL:`, data);
         return data.ip;
     } catch (error) {
-        console.error(`[${new Date().toISOString()}] Failed to fetch IP address from primary URL: ${error.message}`);
-        console.log(`[${new Date().toISOString()}] Attempting to fetch IP address from fallback URL...`);
+        console.error(`[${new Date().toISOString()}] Failed to fetch IP address from primary URL with headers: ${error.message}`);
+    }
 
-        try {
-            const response = await fetch(fallbackUrl, { agent, headers: commonHeaders });
-            const data = await response.json();
-            console.log(`[${new Date().toISOString()}] IP fetch response from fallback URL:`, data);
-            return data.ip;
-        } catch (fallbackError) {
-            console.error(`[${new Date().toISOString()}] Failed to fetch IP address from fallback URL: ${fallbackError.message}`);
-            return null;
-        }
+    try {
+        const response = await fetch(fallbackUrl, { agent, headers: commonHeaders });
+        const data = await response.json();
+        console.log(`[${new Date().toISOString()}] IP fetch response from fallback URL:`, data);
+        return data.ip;
+    } catch (fallbackError) {
+        console.error(`[${new Date().toISOString()}] Failed to fetch IP address from fallback URL with headers: ${fallbackError.message}`);
+    }
+
+    console.log(`[${new Date().toISOString()}] Retrying without headers...`);
+
+    try {
+        const response = await fetch(primaryUrl, { agent });
+        const data = await response.json();
+        console.log(`[${new Date().toISOString()}] IP fetch response from primary URL without headers:`, data);
+        return data.ip;
+    } catch (error) {
+        console.error(`[${new Date().toISOString()}] Failed to fetch IP address from primary URL without headers: ${error.message}`);
+    }
+
+    try {
+        const response = await fetch(fallbackUrl, { agent });
+        const data = await response.json();
+        console.log(`[${new Date().toISOString()}] IP fetch response from fallback URL without headers:`, data);
+        return data.ip;
+    } catch (fallbackError) {
+        console.error(`[${new Date().toISOString()}] Failed to fetch IP address from fallback URL without headers: ${fallbackError.message}`);
+        return null;
     }
 }
 
