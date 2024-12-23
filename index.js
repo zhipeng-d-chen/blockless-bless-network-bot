@@ -33,12 +33,18 @@ async function promptUseProxy() {
     });
 }
 
+const commonHeaders = {
+    "User-Agent": "Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/114.0.0.0 Safari/537.36",
+    "Accept": "text/html,application/xhtml+xml,application/xml;q=0.9,image/webp,*/*;q=0.8",
+    "Accept-Language": "en-US,en;q=0.5"
+};
+
 async function fetchIpAddress(fetch, agent = null) {
     const primaryUrl = "https://ip-check.bless.network/";
     const fallbackUrl = "https://api.ipify.org?format=json";
 
     try {
-        const response = await fetch(primaryUrl, { agent });
+        const response = await fetch(primaryUrl, { agent, headers: commonHeaders });
         const data = await response.json();
         console.log(`[${new Date().toISOString()}] IP fetch response from primary URL:`, data);
         return data.ip;
@@ -47,7 +53,7 @@ async function fetchIpAddress(fetch, agent = null) {
         console.log(`[${new Date().toISOString()}] Attempting to fetch IP address from fallback URL...`);
 
         try {
-            const response = await fetch(fallbackUrl, { agent });
+            const response = await fetch(fallbackUrl, { agent, headers: commonHeaders });
             const data = await response.json();
             console.log(`[${new Date().toISOString()}] IP fetch response from fallback URL:`, data);
             return data.ip;
@@ -648,6 +654,7 @@ async function registerNode(nodeId, hardwareId, ipAddress, agent, authToken) {
     const response = await fetch(registerUrl, {
         method: "POST",
         headers: {
+            ...commonHeaders,
             "Content-Type": "application/json",
             Authorization: `Bearer ${authToken}`
         },
@@ -678,6 +685,7 @@ async function startSession(nodeId, agent, authToken) {
     const response = await fetch(startSessionUrl, {
         method: "POST",
         headers: {
+            ...commonHeaders,
             Authorization: `Bearer ${authToken}`
         },
         agent
@@ -705,6 +713,7 @@ async function pingNode(nodeId, agent, ipAddress, authToken, pingErrorCount) {
     const response = await fetch(pingUrl, {
         method: "POST",
         headers: {
+            ...commonHeaders,
             Authorization: `Bearer ${authToken}`
         },
         agent
