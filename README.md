@@ -47,7 +47,7 @@ This script automates network or node operations for Blockless Bless Network.
   	- After you login to your account, search name with your pubkey (example : `12D3xxxx`), open and copy the `pubkey` and `hardwareid`
 	![image](https://github.com/user-attachments/assets/70bcb0c6-9c47-4c81-9bf4-a55ab912fba6)
 
-5. ~~Or you can use `gen.js` and run with this to get NodeID and HardwareID~~ *Only work for generate HardwareID*
+5. **~~Or you can use `gen.js` and run with this to get NodeID and HardwareID~~** *Only work for generate HardwareID*
 	```bash
  	node gen.js
  	```
