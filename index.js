@@ -27,9 +27,6 @@ function getFormattedTime() {
     return `[${hours}:${minutes}:${seconds}]`;
 }
 
-// Example usage in console logs
-console.log(`${getFormattedTime()} Your log message here`);
-
 async function promptConnectionOption() {
     const rl = readline.createInterface({
         input: process.stdin,
