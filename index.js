@@ -27,22 +27,22 @@ function getFormattedTime() {
     return `[${hours}:${minutes}:${seconds}]`;
 }
 
-async function promptConnectionOption() {
-    const rl = readline.createInterface({
-        input: process.stdin,
-        output: process.stdout
-    });
-
-    return new Promise(resolve => {
-        // ANSI escape code for red text: \x1b[31m
-        // ANSI escape code to reset color: \x1b[0m
-        const redText = '\x1b[31m3. Fake IP (Don\'t use this)\x1b[0m';
-        rl.question(`Connection options:\n1. Use proxy\n2. No proxy\n${redText}\nChoose an option (1/2/3): `, answer => {
-            rl.close();
-            resolve(parseInt(answer, 10));
-        });
-    });
-}
+//async function promptConnectionOption() {
+//    const rl = readline.createInterface({
+//        input: process.stdin,
+//        output: process.stdout
+//    });
+//
+//    return new Promise(resolve => {
+//        // ANSI escape code for red text: \x1b[31m
+//        // ANSI escape code to reset color: \x1b[0m
+//        const redText = '\x1b[31m3. Fake IP (Don\'t use this)\x1b[0m';
+//        rl.question(`Connection options:\n1. Use proxy\n2. No proxy\n${redText}\nChoose an option (1/2/3): `, answer => {
+//            rl.close();
+//            resolve(parseInt(answer, 10));
+//        });
+//    });
+//}
 
 function generateFakeIpAddress() {
     return `192.168.${Math.floor(Math.random() * 256)}.${Math.floor(Math.random() * 256)}`;
@@ -891,7 +891,7 @@ async function runAll(initialRun = true) {
     try {
         if (initialRun) {
             await displayHeader();
-            connectionOption = await promptConnectionOption();
+            connectionOption = 2;
         }
 
         const fetch = await loadFetch();
